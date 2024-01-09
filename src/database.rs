@@ -1,6 +1,8 @@
+use std::net::Ipv4Addr;
+
 use rusqlite::Connection;
 
-use crate::ping::Ping;
+use crate::ping_result::PingResult;
 
 pub struct Database {
     pub conn: Connection,
@@ -18,31 +20,36 @@ impl Database {
                 "CREATE TABLE IF NOT EXISTS results (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 datetime TEXT NOT NULL,
-                retry_count INTEGER DEFAULT 0,
+                host TEXT NOT NULL,
+                success_call INTEGER DEFAULT 0,
                 average_response_ms INTEGER DEFAULT 0
                 )", [],
             )
             .expect("Error creating results table");
     }
 
-    pub fn insert_result(&self, ping: &Ping) {
+    pub fn insert_result(&self, ping_result: &PingResult) {
         self.conn
             .execute(
-                "INSERT INTO results (datetime, retry_count, average_response_ms) VALUES (?, ?, ?)",
-                (&ping.datetime.to_rfc3339(), &ping.retry_count, &ping.average_response_ms),
+                "INSERT INTO results (datetime, host, success_call, average_response_ms) VALUES (?, ?, ?, ?)",
+                (&ping_result.datetime.to_rfc3339(), &ping_result.host.to_string(), &ping_result.success_call, &ping_result.average_response_ms),
             )
             .expect("Failed to insert record");
     }
 
-    pub fn get_results(&self, limit: u32) -> Vec<Ping> {
-        let mut records: Vec<Ping> = self.conn
-            .prepare("SELECT datetime, retry_count, average_response_ms FROM results ORDER BY id DESC LIMIT ?")
+    pub fn get_results(&self, limit: u32) -> Vec<PingResult> {
+        let mut records: Vec<PingResult> = self.conn
+            .prepare("SELECT datetime, host, success_call, average_response_ms FROM results ORDER BY id DESC LIMIT ?")
             .unwrap()
             .query_map([limit], |row| {
-                Ok(Ping {
+                Ok(PingResult {
                     datetime: row.get(0)?,
-                    retry_count: row.get(1)?,
-                    average_response_ms: row.get(2)?,
+                    host: {
+                        let host_str: String = row.get(1).unwrap();
+                        host_str.parse::<Ipv4Addr>().unwrap().into()
+                    },
+                    success_call: row.get(2)?,
+                    average_response_ms: row.get(3)?,
                 })
             })
             .unwrap()
@@ -61,7 +68,8 @@ impl Database {
 mod tests {
     use super::*;
     use std::fs;
-    use std::time::{SystemTime};
+    use std::time::SystemTime;
+    use std::net::{Ipv4Addr, IpAddr};
 
     #[test]
     fn test_database_create_tables() {
@@ -91,23 +99,26 @@ mod tests {
         let db = Database::new("./test2.sqlite");
         db.create_tables();
 
+        let localhost = IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1));
+
         for i in 0..5 {
-            let ping = Ping::new(i+2, i*2+3);
-            db.insert_result(&ping);
+            let ping_result = PingResult::new(localhost, i+2, i*2+3);
+            db.insert_result(&ping_result);
         }
 
-        let pings = db.get_results(3);
+        let ping_results = db.get_results(3);
         
         db.conn.close().unwrap();
 
-        assert_eq!(pings.len(), 3);
-        let ping = &pings[0];
+        assert_eq!(ping_results.len(), 3);
+        let ping_result = &ping_results[0];
 
-        let timedelta = SystemTime::now().duration_since(ping.datetime.into()).unwrap().as_millis();
+        let timedelta = SystemTime::now().duration_since(ping_result.datetime.into()).unwrap().as_millis();
 
         assert!(timedelta < 10000);
-        assert_eq!(ping.retry_count, 4);
-        assert_eq!(ping.average_response_ms, 7);
+        assert_eq!(ping_result.host, localhost);
+        assert_eq!(ping_result.success_call, 4);
+        assert_eq!(ping_result.average_response_ms, 7);
 
         remove_file("./test2.sqlite");
     }
