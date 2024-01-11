@@ -41,12 +41,7 @@ impl PingResult {
             }
         }
 
-        PingResult {
-            datetime: Utc::now(),
-            success_call: success_call,
-            average_response_ms: (elapsed_time as i32) / success_call,
-            host: host,
-        }
+        PingResult::new(host, success_call, (elapsed_time as i32) / success_call)
     }
 }
 
@@ -63,7 +58,7 @@ impl fmt::Display for PingResult {
 
 #[cfg(test)]
 mod tests {
-    use std::net::{Ipv4Addr};
+    use std::net::{Ipv4Addr, Ipv6Addr};
     use super::*;
 
     #[test]
@@ -97,11 +92,14 @@ mod tests {
     }
 
     #[test]
-    fn test_ip() {
+    fn test_parse_ip() {
         let localhost = IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1));
         println!("{}", localhost.to_string());
 
         let ip = IpAddr::V4("8.0.8.0".parse::<Ipv4Addr>().unwrap());
+        println!("{:?}", ip);
+        
+        let ip = IpAddr::V6("2a00:1450:4007:80d::200e".parse::<Ipv6Addr>().unwrap());
         println!("{:?}", ip);
     }
 }

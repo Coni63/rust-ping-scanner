@@ -1,1 +1,4 @@
 /target
+/out/result.sqlite
+/out/whitelist.txt
+Cargo.lock

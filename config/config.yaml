@@ -1,0 +1,5 @@
+---
+app:
+  database_path: ./out/result.sqlite
+  whitelist_path: ./out/whitelist.txt
+  ping_interval: 60

@@ -37,6 +37,7 @@ impl Database {
             .expect("Failed to insert record");
     }
 
+    #[allow(dead_code)]
     pub fn get_results(&self, limit: u32) -> Vec<PingResult> {
         let mut records: Vec<PingResult> = self.conn
             .prepare("SELECT datetime, host, success_call, average_response_ms FROM results ORDER BY id DESC LIMIT ?")
