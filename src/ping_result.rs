@@ -41,7 +41,13 @@ impl PingResult {
             }
         }
 
-        PingResult::new(host, success_call, (elapsed_time as i32) / success_call)
+        if success_call == 0 {
+            println!("Ping failed for {}", host);
+            return PingResult::new(host, success_call, 0);
+        } else {
+            return PingResult::new(host, success_call, (elapsed_time as i32 / success_call));
+        }
+
     }
 }
 
